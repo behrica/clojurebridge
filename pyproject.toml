@@ -1,12 +1,4 @@
 [build-system]
-install_requires = [
-    "numpy>=1.20.1",
-    "python-javabridge"
-]
-
-build_requires = [
-    "numpy>=1.20.1"
-]
 requires = [
     "setuptools>=42",
     "wheel"
