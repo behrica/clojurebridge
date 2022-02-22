@@ -107,11 +107,12 @@ DEFAULT_CIDER_NREPL_VERSION = "0.25.5"
 
 def repl_classpath(nrepl_version=DEFAULT_NREPL_VERSION,
                    cider_nrepl_version=DEFAULT_CIDER_NREPL_VERSION,
+                   mvn_local_repo="~/.m2/repository",
                    classpath_args=[], **kw_args):
     """Return the classpath with the correct deps to run nrepl and cider.
     Positional arguments are added after the -Sdeps argument to start the
     nrepl server."""
-    return classpath(classpath_args=["-Sdeps", '{:deps {nrepl/nrepl {:mvn/version "%s"} cider/cider-nrepl {:mvn/version "%s"}}}' % (nrepl_version, cider_nrepl_version)]
+    return classpath(classpath_args=["-Sdeps", '{:mvn/local-repo "%s" :deps { nrepl/nrepl {:mvn/version "%s"} cider/cider-nrepl {:mvn/version "%s"}}}' % (mvn_local_repo,nrepl_version, cider_nrepl_version)]
                         + list(classpath_args))
 
 
