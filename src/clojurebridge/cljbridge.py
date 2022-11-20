@@ -11,6 +11,7 @@ take care of starting up everything in the correct order.
 """
 import subprocess
 import javabridge
+import json
 
 try:
     from collections.abc import Callable  # noqa
@@ -113,16 +114,25 @@ def repl_classpath(nrepl_version=DEFAULT_NREPL_VERSION,
     nrepl server."""
     return classpath(classpath_args=["-Sdeps", '{:deps { nrepl/nrepl {:mvn/version "%s"} cider/cider-nrepl {:mvn/version "%s"}}}' % (nrepl_version, cider_nrepl_version)]
                         + list(classpath_args))
+def get_jvm_args(aliases):
+    """Call to Clojure at commandline and resolve given aliases to JVM args """
+    return subprocess.check_output(['clojure',
+                                    '-Sdeps', '{:deps {io.github.clojure/tools.build {:git/tag "v0.8.3" :git/sha "0d20256"}}}',
+                                    '-e',
+                                    "(require '[clojure.tools.build.api :as b]'[clojure.string :as str])(let [basis (b/create-basis {:aliases (map keyword %s)}) jvm-args (str/join \" \" (:jvm-opts (:resolve-args basis)))] (println jvm-args))" % (json.dumps(aliases))] ).decode("utf-8").strip().split(' ')
 
-
-def init_clojure(classpath_args=[]):
+def init_clojure(aliases=[],classpath_args=[]):
     """Initialize a vanilla clojure process using the clojure command line to output
     the classpath to use for the java vm. At the return of this function clojure is
     initialized and libpython-clj2.python's public functions will work.
 
+    * `aliases` can be used to configure arbitrary JVM arguments and will be resolved using
+    the local deps.edn file.
+
     * classpath_args - List of arguments that will be passed to the clojure command
     line process when building the classpath. """
     javabridge.start_vm(run_headless=True,
+                        args=get_jvm_args(aliases),
                         class_path=classpath(classpath_args=classpath_args))
     init_clojure_runtime()
     init_libpy_embedded()
@@ -138,7 +148,7 @@ def py_dict_to_keyword_map(py_dict):
     return hash_map
 
 
-def init_jvm(**kw_args):
+def init_jvm(aliases=[],**kw_args):
     """Initialize clojure with extra arguments specifically for embedding a cider-nrepl
     server.  Then start an nrepl server.  The port will both be printed to stdout and
     output to a .nrepl_server file.  This function does not return as it leaves the GIL
@@ -149,13 +159,17 @@ def init_jvm(**kw_args):
     Keyword arguments in python are mapped to a hash-map of keyword options and
     passed directly to clojure so any nrepl are valid arguments to this function.
 
+    * `aliases` can be used to configure arbitrary JVM arguments and will be resolved using
+    the local deps.edn file.
     * `classpath_args` - List of additional arguments that be passed to the clojure
       process when building the classpath.
     * `port` - Integer port to open up repl.  A random port will be found if not 
       provided.
     * `bind` - Bind address.  If you are having connectivity issues try 
       bind=\"0.0.0.0\""""
-    javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
+    javabridge.start_vm(run_headless=True,
+                        args=get_jvm_args(aliases),
+                        class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
     if "load_user_clj" in kw_args:
         resolve_call_fn("clojure.core/load-file",
@@ -169,17 +183,23 @@ def init_jvm(**kw_args):
     if "kill_vm_after" in kw_args:
         javabridge.kill_vm()
 
-def load_clojure_file(**kw_args):
+def load_clojure_file(aliases=[],**kw_args):
     """Initializes clojure and loads and runs a Clojure file. This function load the specified clojure file
     and kills then the jvm and returns.
 
+
+
     Keyword arguments are:
 
+     * `aliases` can be used to configure arbitrary JVM arguments and will be resolved using
+    the local deps.edn file.
      * `classpath_args` - List of additional arguments that be passed to the clojure
       process when building the classpath.
      * `clj_file` Clojure file to be loaded with Clojure `load-file` fn
     """
-    javabridge.start_vm(run_headless=True, class_path=repl_classpath(**kw_args))
+    javabridge.start_vm(run_headless=True,
+                        args=get_jvm_args(aliases),
+                        class_path=repl_classpath(**kw_args))
     init_clojure_runtime()
     init_libpy_embedded()
     try:
